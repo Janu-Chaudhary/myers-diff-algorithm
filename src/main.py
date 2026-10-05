@@ -128,6 +128,43 @@ def deletes_first(a, b, ops):
     return rows
 
 
+def mark(ranges, position):
+    """Add one changed character to a list of [start, end) ranges, merging with the last if touching."""
+    if ranges and ranges[-1][1] == position:
+        ranges[-1][1] = position + 1           # touches the previous range: extend it
+    else:
+        ranges.append([position, position + 1])
+
+
+def format_ranges(ranges):
+    """Write ranges as "3-5,9-12", or "." when nothing changed on this side (assignment §3)."""
+    return ",".join(f"{start}-{end}" for start, end in ranges) or "."
+
+
+def changed_ranges(old, new):
+    """Return (old ranges, new ranges) as text for one paired '-' line and '+' line (assignment §3).
+
+    Part B is Myers again, one level down: the items are the characters (Unicode code points)
+    of the two lines instead of the lines of two files. Deleted characters are the changed
+    ranges of the old line, inserted characters those of the new line. Because Myers finds
+    the fewest edits, the number of highlighted characters is the minimum possible.
+    """
+    old_text, new_text = old.decode("utf-8"), new.decode("utf-8")   # code points: emoji = 1, \r = 1
+    ops = backtrack(forward_pass(old_text, new_text), len(old_text), len(new_text))
+    old_ranges, new_ranges = [], []
+    i = j = 0                                  # position in the old line and in the new line
+    for op in ops:
+        if op == "-":
+            mark(old_ranges, i)
+        elif op == "+":
+            mark(new_ranges, j)
+        if op != "+":                          # keep and delete use up one old character
+            i += 1
+        if op != "-":                          # keep and insert use up one new character
+            j += 1
+    return format_ranges(old_ranges), format_ranges(new_ranges)
+
+
 def main() -> int:
     if len(sys.argv) != 4 or sys.argv[1] not in ("lines", "highlight"):
         print("usage: main.py lines|highlight A_PATH B_PATH", file=sys.stderr)
