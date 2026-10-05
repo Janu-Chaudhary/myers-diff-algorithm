@@ -165,6 +165,30 @@ def changed_ranges(old, new):
     return format_ranges(old_ranges), format_ranges(new_ranges)
 
 
+def add_question_rows(rows):
+    """Return rows with a "?" row after every paired "+" row, for the highlight command (§3).
+
+    Inside a change block the 1st "-" pairs with the 1st "+", the 2nd with the 2nd, and so on;
+    leftover lines on either side get no "?" row. This relies on deletes_first(): in every block
+    all "-" rows come before any "+" row, so the partners are known when each "+" is reached.
+    """
+    out = []
+    deletes = []                               # "-" lines of the current change block
+    inserts_seen = 0                           # "+" lines seen so far in the current block
+    for prefix, line in rows:
+        out.append((prefix, line))
+        if prefix == b" ":
+            deletes, inserts_seen = [], 0      # a keep ends the change block
+        elif prefix == b"-":
+            deletes.append(line)
+        else:
+            if inserts_seen < len(deletes):    # this "+" has a partner: the "-" at the same index
+                old_ranges, new_ranges = changed_ranges(deletes[inserts_seen], line)
+                out.append((b"?", f" {old_ranges} | {new_ranges}".encode()))
+            inserts_seen += 1
+    return out
+
+
 def main() -> int:
     if len(sys.argv) != 4 or sys.argv[1] not in ("lines", "highlight"):
         print("usage: main.py lines|highlight A_PATH B_PATH", file=sys.stderr)
@@ -182,6 +206,8 @@ def main() -> int:
 
     ops = backtrack(forward_pass(a_lines, b_lines), len(a_lines), len(b_lines))
     rows = deletes_first(a_lines, b_lines, ops)
+    if command == "highlight":
+        rows = add_question_rows(rows)        # Part B: same diff plus "?" rows
     # Lines are bytes (they may hold \r or invalid UTF-8), so write bytes to stdout's binary buffer.
     # One join and one write: much faster than printing 500,000 lines one by one.
     sys.stdout.buffer.write(b"".join(prefix + line + b"\n" for prefix, line in rows))
