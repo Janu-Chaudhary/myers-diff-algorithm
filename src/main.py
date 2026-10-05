@@ -66,6 +66,40 @@ def forward_pass(a, b):
     # No return needed here: by d = max_d the corner is always reached.
 
 
+def backtrack(trace, n, m):
+    """Recover the edit script from forward_pass's trace for sequences of lengths n and m.
+
+    Returns a list of operations in order from the start of the files:
+    " " keeps the next item of a (equal to the next of b), "-" deletes the next item of a,
+    "+" inserts the next item of b.
+    Walks from the corner (n, m) back to (0, 0). In round d, the saved slice of round d - 1
+    shows which neighbour diagonal the forward pass came from, using the same rule it used.
+    """
+    x, y = n, m
+    ops = []
+    for d in range(len(trace) - 1, 0, -1):
+        k = x - y
+        prev = trace[d - 1]                    # v[-(d-1)..d-1]; diagonal j is at index j + d - 1
+        # Same choice as the forward pass: down from k+1 (insert) or right from k-1 (delete).
+        if k == -d or (k != d and prev[k - 1 + d - 1] < prev[k + 1 + d - 1]):
+            prev_k, op = k + 1, "+"
+        else:
+            prev_k, op = k - 1, "-"
+        prev_x = prev[prev_k + d - 1]          # where round d - 1 ended on that diagonal
+        prev_y = prev_x - prev_k
+        # Walk back along the snake: diagonal moves are kept items.
+        while x > prev_x and y > prev_y:
+            ops.append(" ")
+            x -= 1
+            y -= 1
+        ops.append(op)                         # the single insert or delete of round d
+        x, y = prev_x, prev_y
+    # Round 0 is only a snake from (0, 0), so the rest are kept items (here x == y).
+    ops.extend(" " * x)
+    ops.reverse()                              # collected from the end; one reverse, no insert(0, ...)
+    return ops
+
+
 def main() -> int:
     if len(sys.argv) != 4 or sys.argv[1] not in ("lines", "highlight"):
         print("usage: main.py lines|highlight A_PATH B_PATH", file=sys.stderr)
