@@ -83,4 +83,6 @@ def main() -> int:
     return 0
 
 
-raise SystemExit(main())
+# Run only when started as a program, so tests can import the functions above without running main().
+if __name__ == "__main__":
+    raise SystemExit(main())
