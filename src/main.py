@@ -216,8 +216,9 @@ def main() -> int:
     if command == "highlight":
         rows = add_question_rows(rows)        # Part B: same diff plus "?" rows
     # Lines are bytes (they may hold \r or invalid UTF-8), so write bytes to stdout's binary buffer.
-    # One join and one write: much faster than printing 500,000 lines one by one.
-    sys.stdout.buffer.write(b"".join(prefix + line + b"\n" for prefix, line in rows))
+    # writelines streams the lines out one by one through the buffer, instead of first joining the
+    # whole output into one big copy: on 500,000 long lines that copy alone cost ~200 MiB (§4: 768 MiB).
+    sys.stdout.buffer.writelines(prefix + line + b"\n" for prefix, line in rows)
     return 0
 
 
