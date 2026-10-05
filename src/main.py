@@ -100,6 +100,33 @@ def backtrack(trace, n, m):
     return ops
 
 
+def deletes_first(a, b, ops):
+    """Turn the edit script into output rows (prefix, item), deletions first in every change block.
+
+    A change block is a run of "-" and "+" with no keep between them (assignment §2). The
+    backtrack can mix them inside a block, so each block's deletes and inserts are held back
+    and written out as all deletes, then all inserts, when the block ends. This stays a valid
+    diff: deletes only use items of a and inserts only items of b, each still in order.
+    """
+    rows, deletes, inserts = [], [], []
+    i = j = 0                                  # next unused item of a and of b
+    for op in ops:
+        if op == " ":
+            rows += deletes + inserts          # a keep ends the current change block
+            deletes, inserts = [], []
+            rows.append((b" ", a[i]))
+            i += 1
+            j += 1
+        elif op == "-":
+            deletes.append((b"-", a[i]))
+            i += 1
+        else:
+            inserts.append((b"+", b[j]))
+            j += 1
+    rows += deletes + inserts                  # the last block, if the files end with changes
+    return rows
+
+
 def main() -> int:
     if len(sys.argv) != 4 or sys.argv[1] not in ("lines", "highlight"):
         print("usage: main.py lines|highlight A_PATH B_PATH", file=sys.stderr)
@@ -114,6 +141,12 @@ def main() -> int:
     except OSError as error:
         print(f"error: cannot read input file: {error}", file=sys.stderr)
         return 2
+
+    ops = backtrack(forward_pass(a_lines, b_lines), len(a_lines), len(b_lines))
+    rows = deletes_first(a_lines, b_lines, ops)
+    # Lines are bytes (they may hold \r or invalid UTF-8), so write bytes to stdout's binary buffer.
+    # One join and one write: much faster than printing 500,000 lines one by one.
+    sys.stdout.buffer.write(b"".join(prefix + line + b"\n" for prefix, line in rows))
     return 0
 
 
