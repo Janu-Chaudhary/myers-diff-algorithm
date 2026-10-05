@@ -45,19 +45,20 @@ def forward_pass(a, b):
     # v[1] = 0 is a virtual start: round d = 0 "moves down" from diagonal 1 to land on (0, 0).
     for d in range(max_d + 1):
         for k in range(-d, d + 1, 2):
+            i = offset + k                     # where diagonal k lives in v; i-1 is k-1, i+1 is k+1
             # Choose where to come from. Down from k+1 (insert) if that diagonal got further,
             # otherwise right from k-1 (delete). On a tie we go right, so deletions come first.
             # k == -d has no k-1 neighbour; k == d has no k+1 neighbour.
-            if k == -d or (k != d and v[offset + k - 1] < v[offset + k + 1]):
-                x = v[offset + k + 1]          # down: x stays, y grows by one
+            if k == -d or (k != d and v[i - 1] < v[i + 1]):
+                x = v[i + 1]                   # down: x stays, y grows by one
             else:
-                x = v[offset + k - 1] + 1      # right: x grows by one
+                x = v[i - 1] + 1               # right: x grows by one
             y = x - k
             # Follow the snake: equal items are free diagonal moves.
             while x < n and y < m and a[x] == b[y]:
                 x += 1
                 y += 1
-            v[offset + k] = x                  # furthest-reaching point on diagonal k
+            v[i] = x                           # furthest-reaching point on diagonal k
             if x >= n and y >= m:              # reached the bottom-right corner: d is minimal
                 trace.append(v[offset - d:offset + d + 1])
                 return trace
