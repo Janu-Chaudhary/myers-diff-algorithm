@@ -4,6 +4,10 @@ Usage:  python3 main.py lines A B       line diff of file A to file B
         python3 main.py highlight A B   the same diff, plus a "?" line of changed characters
 
 Algorithm: Eugene Myers, "An O(ND) Difference Algorithm and Its Variations" (1986), section 3.
+
+Flow: read_lines -> forward_pass (find D, save V) -> backtrack (edit script) -> deletes_first
+(output rows) -> for highlight only, add_question_rows (pairs lines, calls changed_ranges, which
+runs the same forward_pass and backtrack on characters) -> one write to stdout.
 """
 
 import sys
@@ -33,7 +37,7 @@ def forward_pass(a, b):
     Diagonal k = x - y. With d edits, only diagonals -d, -d+2, ..., d can be reached.
     v[k] holds the furthest x reached so far on diagonal k (then y = x - k).
 
-    trace[d] is a copy of v[-d..d] taken after round d; its index i stands for diagonal i - d.
+    trace[d] is a copy of v[-d..d] taken after round d; position p in it stands for diagonal p - d.
     The search stops in the first round d that reaches (len(a), len(b)), so len(trace) - 1 is
     the minimal number of edits D. Works on any sequences of comparable items: lines or characters.
     """
@@ -42,7 +46,8 @@ def forward_pass(a, b):
     offset = max_d                     # python lists cannot use negative k, so v[k] is v[k + offset]
     v = [0] * (2 * max_d + 2)          # room for k = -max_d .. max_d + 1 (k + 1 is read at k = d)
     trace = []
-    # v[1] = 0 is a virtual start: round d = 0 "moves down" from diagonal 1 to land on (0, 0).
+    # Virtual start: diagonal 1 (v[offset + 1]) holds x = 0, so round d = 0 "moves down" from it
+    # and lands on (0, 0).
     for d in range(max_d + 1):
         for k in range(-d, d + 1, 2):
             i = offset + k                     # where diagonal k lives in v; i-1 is k-1, i+1 is k+1
@@ -95,7 +100,8 @@ def backtrack(trace, n, m):
             y -= 1
         ops.append(op)                         # the single insert or delete of round d
         x, y = prev_x, prev_y
-    # Round 0 is only a snake from (0, 0), so the rest are kept items (here x == y).
+    # Round 0 is only a snake from (0, 0), so the rest are kept items (here x == y):
+    # add x keep operations (" " * x is a string of x spaces; extend adds each one).
     ops.extend(" " * x)
     ops.reverse()                              # collected from the end; one reverse, no insert(0, ...)
     return ops
@@ -190,6 +196,7 @@ def add_question_rows(rows):
 
 
 def main() -> int:
+    """Run one command on two files; return the exit code (0 = success, 2 = bad usage or unreadable file)."""
     if len(sys.argv) != 4 or sys.argv[1] not in ("lines", "highlight"):
         print("usage: main.py lines|highlight A_PATH B_PATH", file=sys.stderr)
         return 2
